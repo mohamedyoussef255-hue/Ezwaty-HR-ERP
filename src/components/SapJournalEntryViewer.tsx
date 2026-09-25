@@ -9,6 +9,7 @@
 import React, { useState, useEffect } from 'react';
 import { SapJournalEntryPayload, SapSyncResponse } from '../types/hr';
 import { useLanguage } from '../context/LanguageContext';
+import { apiClient } from '../services/apiClient';
 import { 
   ArrowUpRight, 
   ArrowDownLeft, 
@@ -44,11 +45,8 @@ export const SapJournalEntryViewer: React.FC<SapJournalEntryViewerProps> = ({
   const fetchJournalEntry = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/hr/payroll/export-sap?tenantId=${tenantId}&payrollPeriod=${payrollPeriod}&companyCode=${companyCode}`);
-      const data = await res.json();
-      if (data.success && data.sapJournalEntry) {
-        setJournalData(data.sapJournalEntry);
-      }
+      const data = await apiClient.getSapPayrollJournal(tenantId, payrollPeriod, companyCode);
+      setJournalData(data);
     } catch (err) {
       console.error('Failed to load SAP journal entry:', err);
     } finally {
@@ -64,12 +62,7 @@ export const SapJournalEntryViewer: React.FC<SapJournalEntryViewerProps> = ({
     setSyncingWithSap(true);
     setSapSyncReceipt(null);
     try {
-      const res = await fetch('/api/sap/sync-simulate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payrollPeriod, companyCode }),
-      });
-      const data = await res.json();
+      const data = await apiClient.simulateSapPosting(payrollPeriod, companyCode);
       setSapSyncReceipt(data);
     } catch (err) {
       console.error('Error posting to SAP:', err);

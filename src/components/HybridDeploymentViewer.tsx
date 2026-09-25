@@ -8,6 +8,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { apiClient } from '../services/apiClient';
 import { 
   Server, 
   Cloud, 
@@ -74,8 +75,7 @@ export const HybridDeploymentViewer: React.FC = () => {
 
   const fetchSystemState = async () => {
     try {
-      const res = await fetch('/api/system/mode');
-      const data = await res.json();
+      const data = await apiClient.getSystemMode();
       setSystemState(data);
       if (data.licenseKey) {
         setCustomKeyInput(data.licenseKey);
@@ -90,8 +90,10 @@ export const HybridDeploymentViewer: React.FC = () => {
   const fetchQueryPreview = async (mode: string) => {
     try {
       const res = await fetch(`/api/system/query-preview?mode=${mode}`);
-      const data = await res.json();
-      setSqlPreview(data);
+      if (res.ok) {
+        const data = await res.json();
+        setSqlPreview(data);
+      }
     } catch (err) {
       console.error('Failed to fetch query preview:', err);
     }
@@ -106,12 +108,7 @@ export const HybridDeploymentViewer: React.FC = () => {
     setSwitching(true);
     setKeyStatusMsg(null);
     try {
-      const res = await fetch('/api/system/mode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: targetMode }),
-      });
-      const data = await res.json();
+      const data = await apiClient.setSystemMode(targetMode);
       if (data.success) {
         setSystemState(data.state);
         fetchQueryPreview(targetMode);
@@ -135,12 +132,7 @@ export const HybridDeploymentViewer: React.FC = () => {
     if (type === 'tampered') {
       const tamperedKey = 'eyJjdXN0b21lcklkIjoiVEFNUEVSRUQifQ==.ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
       setCustomKeyInput(tamperedKey);
-      const res = await fetch('/api/system/license/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ licenseKey: tamperedKey, updateActiveKey: true }),
-      });
-      const data = await res.json();
+      await apiClient.verifyLicense(tamperedKey, true);
       await fetchSystemState();
       setKeyStatusMsg(
         isRtl
@@ -152,21 +144,10 @@ export const HybridDeploymentViewer: React.FC = () => {
     }
 
     try {
-      const genRes = await fetch('/api/system/license/generate-demo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, customSeats: type === 'seats_exceeded' ? 2 : 500 }),
-      });
-      const genData = await genRes.json();
-
+      const genData = await apiClient.generateDemoLicense(type);
       setCustomKeyInput(genData.generatedKey);
 
-      await fetch('/api/system/license/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ licenseKey: genData.generatedKey, updateActiveKey: true }),
-      });
-
+      await apiClient.verifyLicense(genData.generatedKey, true);
       await fetchSystemState();
 
       if (type === 'valid') {
@@ -187,12 +168,7 @@ export const HybridDeploymentViewer: React.FC = () => {
     if (!customKeyInput.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/system/license/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ licenseKey: customKeyInput.trim(), updateActiveKey: true }),
-      });
-      const data = await res.json();
+      const data = await apiClient.verifyLicense(customKeyInput.trim(), true);
       await fetchSystemState();
       setKeyStatusMsg(
         data.result.valid

@@ -14,6 +14,7 @@ import {
   Employee 
 } from '../types/hr';
 import { useLanguage } from '../context/LanguageContext';
+import { apiClient } from '../services/apiClient';
 import { 
   Building2, 
   Layers, 
@@ -170,17 +171,12 @@ export const EmployeeProfileBuilder: React.FC<EmployeeProfileBuilderProps> = ({
   // Load master data and tenant's dynamic JSONB schema
   const fetchMetadata = async () => {
     setLoadingSchema(true);
+    setErrors([]);
     try {
-      const [deptRes, ccRes, schemaRes] = await Promise.all([
-        fetch(`/api/hr/departments?tenantId=${tenantId}`),
-        fetch(`/api/hr/cost-centers?tenantId=${tenantId}`),
-        fetch(`/api/hr/schema-config?tenantId=${tenantId}`),
-      ]);
-
       const [deptData, ccData, schemaData] = await Promise.all([
-        deptRes.json(),
-        ccRes.json(),
-        schemaRes.json(),
+        apiClient.getDepartments(tenantId),
+        apiClient.getCostCenters(tenantId),
+        apiClient.getSchemaConfig(tenantId),
       ]);
 
       setDepartments(deptData);
@@ -218,7 +214,7 @@ export const EmployeeProfileBuilder: React.FC<EmployeeProfileBuilderProps> = ({
       setDynamicAttributes(initialDynamic);
     } catch (err) {
       console.error('Failed to load schema configuration:', err);
-      setErrors(['Failed to communicate with HR backend service.']);
+      setErrors([isRtl ? 'تعذر الاتصال بخدمة الموارد البشرية الخلفية.' : 'Failed to communicate with HR backend service.']);
     } finally {
       setLoadingSchema(false);
     }
@@ -293,20 +289,10 @@ export const EmployeeProfileBuilder: React.FC<EmployeeProfileBuilderProps> = ({
         customAttributes: dynamicAttributes,
       };
 
-      const response = await fetch('/api/hr/employees', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const result = await apiClient.createEmployee(payload);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        if (result.errors && Array.isArray(result.errors)) {
-          setErrors(result.errors);
-        } else {
-          setErrors([result.message || 'Error creating employee profile.']);
-        }
+      if (result.errors && Array.isArray(result.errors) && result.errors.length > 0) {
+        setErrors(result.errors);
         return;
       }
 
@@ -326,7 +312,7 @@ export const EmployeeProfileBuilder: React.FC<EmployeeProfileBuilderProps> = ({
         sapEmployeeId: '',
       }));
     } catch (err: any) {
-      setErrors([err.message || 'Network error occurred.']);
+      setErrors([err.message || (isRtl ? 'حدث خطأ في الاتصال بالشبكة.' : 'Network error occurred.')]);
     } finally {
       setSubmitting(false);
     }

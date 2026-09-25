@@ -8,6 +8,7 @@
 import React, { useState, useEffect } from 'react';
 import { CustomFieldDefinition, FieldType } from '../types/hr';
 import { useLanguage } from '../context/LanguageContext';
+import { apiClient } from '../services/apiClient';
 import { 
   Plus, 
   Check, 
@@ -44,8 +45,7 @@ export const DynamicFieldConfigurator: React.FC<DynamicFieldConfiguratorProps> =
   const fetchFields = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/hr/schema-config?tenantId=${tenantId}`);
-      const data = await res.json();
+      const data = await apiClient.getSchemaConfig(tenantId);
       setFieldDefs(data);
     } catch (err) {
       console.error('Failed to load fields:', err);
@@ -82,15 +82,9 @@ export const DynamicFieldConfigurator: React.FC<DynamicFieldConfiguratorProps> =
         description: newDescription,
       };
 
-      const res = await fetch('/api/hr/schema-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Failed to save dynamic field.');
+      const res = await apiClient.saveCustomField(payload);
+      if (!res.success) {
+        setError(res.error || (isRtl ? 'فشل حفظ الحقل الديناميكي.' : 'Failed to save dynamic field.'));
         return;
       }
 
@@ -102,7 +96,7 @@ export const DynamicFieldConfigurator: React.FC<DynamicFieldConfiguratorProps> =
       setNewLabel('');
       setNewDescription('');
     } catch (err: any) {
-      setError(err.message || 'Error communicating with server.');
+      setError(err.message || (isRtl ? 'خطأ في الاتصال بالخادم.' : 'Error communicating with server.'));
     } finally {
       setSaving(false);
     }

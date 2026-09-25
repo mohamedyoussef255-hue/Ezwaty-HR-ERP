@@ -15,6 +15,7 @@ import { HybridDeploymentViewer } from './components/HybridDeploymentViewer';
 import { EmployeeList } from './components/EmployeeList';
 import { Employee } from './types/hr';
 import { useSecretClick } from './hooks/useSecretClick';
+import { apiClient } from './services/apiClient';
 import { 
   Plus, 
   Languages,
@@ -46,9 +47,8 @@ function AppContent() {
 
   const fetchSystemMode = async () => {
     try {
-      const res = await fetch('/api/system/mode');
-      const data = await res.json();
-      if (data.mode) {
+      const data = await apiClient.getSystemMode();
+      if (data && data.mode) {
         setDeploymentMode(data.mode);
         if (data.mode === 'ON_PREMISE') {
           setTenantId(data.localTenantId || 'local-premise-org');
@@ -62,8 +62,7 @@ function AppContent() {
   const fetchEmployees = async () => {
     setLoadingEmployees(true);
     try {
-      const res = await fetch(`/api/hr/employees?tenantId=${tenantId}`);
-      const data = await res.json();
+      const data = await apiClient.getEmployees(tenantId);
       if (Array.isArray(data)) {
         setEmployees(data);
       }
