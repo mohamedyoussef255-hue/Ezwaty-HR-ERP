@@ -1,0 +1,8 @@
+{
+  "name": "EZWATY-HR & SAP Cloud ERP",
+  "description": "Enterprise Multi-Tenant HR Module with Dynamic JSONB Schema and SAP S/4HANA FI/CO Integration",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

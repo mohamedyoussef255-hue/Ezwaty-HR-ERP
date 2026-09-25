@@ -1,0 +1,86 @@
+# ==============================================================================
+# EZWATY HR & SAP ERP - ON-PREMISE PRODUCTION DOCKER COMPOSE
+# Tailored for zero-friction turnkey deployment on client local servers
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. PostgreSQL Relational Database Service (with persistent JSONB support)
+  # ----------------------------------------------------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: ezwaty-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ezwaty_hr_db
+      POSTGRES_USER: ezwaty_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-LocalSecurePassword2026!}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./src/shared/ddl.ts:/docker-entrypoint-initdb.d/init-schema.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - ezwaty-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ezwaty_admin -d ezwaty_hr_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 2. Ezwaty Application Server (Node.js + React SPA + SAP Gateway)
+  # ----------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ezwaty-app-server
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Toggle Hybrid Mode: 'ON_PREMISE' disables multi-tenant isolation and activates license checks
+      DEPLOYMENT_MODE: "ON_PREMISE"
+      LOCAL_TENANT_ID: "local-premise-org"
+      LOCAL_TENANT_NAME: "Client Corporate Enterprise"
+
+      # Offline Cryptographic License Key for Air-Gapped / On-Premise Installations
+      ON_PREMISE_LICENSE_KEY: "${ON_PREMISE_LICENSE_KEY}"
+      LICENSE_HMAC_SECRET: "${LICENSE_HMAC_SECRET:-ezwaty-enterprise-airgap-license-secret-2026}"
+
+      # Database Connection Strings
+      DATABASE_URL: "postgresql://ezwaty_admin:${DB_PASSWORD:-LocalSecurePassword2026!}@db:5432/ezwaty_hr_db"
+      PORT: "3000"
+
+      # Optional Remote SAP S/4HANA endpoint for on-premise RFC/OData tunneling
+      SAP_GATEWAY_URL: "${SAP_GATEWAY_URL:-https://s4hana.internal.client:44300}"
+      SAP_DEFAULT_COMPANY_CODE: "1010"
+    ports:
+      - "3000:3000"
+    networks:
+      - ezwaty-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ------------------------------------------------------------------------------
+# Persistent Storage Volumes
+# ------------------------------------------------------------------------------
+volumes:
+  pgdata:
+    name: ezwaty_pgdata
+    driver: local
+
+# ------------------------------------------------------------------------------
+# Isolated Internal Network
+# ------------------------------------------------------------------------------
+networks:
+  ezwaty-network:
+    name: ezwaty-internal-net
+    driver: bridge
